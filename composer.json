@@ -1,0 +1,42 @@
+{
+  "name": "meritum/logger",
+  "description": "Minimal PSR-3 logger that writes newline-delimited JSON to stdout",
+  "type": "library",
+  "authors": [
+    {
+      "name": "Mike Georgeff",
+      "email": "mike@georgeff.co",
+      "role": "Author"
+    }
+  ],
+  "license": "MIT",
+  "require": {
+    "php": "^8.4",
+    "georgeff/kernel": "^1.6",
+    "psr/log": "^3.0"
+  },
+  "require-dev": {
+    "bnf/phpstan-psr-container": "^1.0",
+    "phpunit/phpunit": "^11.0",
+    "phpstan/phpstan": "^2.0",
+    "squizlabs/php_codesniffer": "^3.11"
+  },
+  "autoload": {
+    "psr-4": {
+      "Meritum\\Logger\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Meritum\\Logger\\Test\\": "tests/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "scripts": {
+    "test": ["vendor/bin/phpunit"],
+    "analyze": ["vendor/bin/phpstan"],
+    "phpcs": ["vendor/bin/phpcs"]
+  }
+}
