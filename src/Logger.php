@@ -16,7 +16,7 @@ final class Logger implements LoggerInterface
     private const array LOG_LEVELS = ['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'];
 
     /**
-     * Reduces PSR-3's 8 levels to a 4-value severity scheme for structured log sinks
+     * Reduces PSR-3's 8 levels to a 5-value severity scheme for structured log sinks
      * The original PSR-3 level is always preserved in the 'level' field of the log entry
      */
     private const array SEVERITY_MAP = [
@@ -46,7 +46,7 @@ final class Logger implements LoggerInterface
     public function __construct(mixed $output, string $logLevel = 'debug')
     {
         if (!is_resource($output)) {
-            throw new \InvalidArgumentException('Resource parameter must be a valid resource');
+            throw new \InvalidArgumentException('Output parameter must be a valid resource');
         }
 
         $logLevel = strtolower($logLevel);
