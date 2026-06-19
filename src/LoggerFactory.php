@@ -15,6 +15,6 @@ final class LoggerFactory
         /** @var string $level **/
         $level  = $config['logger.log_level'] ?? 'info';
 
-        return new Logger(STDOUT, $level);
+        return new Logger(\STDOUT, $level);
     }
 }
