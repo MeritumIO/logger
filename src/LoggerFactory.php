@@ -15,6 +15,10 @@ final class LoggerFactory
         /** @var string $level **/
         $level  = $config['logger.log_level'] ?? 'info';
 
-        return new Logger(\STDOUT, $level);
+        $resource = fopen('php://stdout', 'w');
+
+        assert(false !== $resource);
+
+        return new Logger($resource, $level);
     }
 }
