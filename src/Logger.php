@@ -102,6 +102,8 @@ final class Logger implements LoggerInterface
         $json = json_encode($logEntry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
         fwrite($this->output, $json . PHP_EOL);
+
+        fflush($this->output);
     }
 
     private function shouldLog(string $level): bool
