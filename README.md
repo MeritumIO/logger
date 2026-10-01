@@ -1,5 +1,9 @@
 # meritum/logger
 
+[![CI](https://github.com/MeritumIO/logger/actions/workflows/ci.yml/badge.svg)](https://github.com/MeritumIO/logger/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/MeritumIO/logger/badge.svg?branch=main)](https://coveralls.io/github/MeritumIO/logger?branch=main)
+[![Packagist Version](https://img.shields.io/packagist/v/meritum/logger)](https://packagist.org/packages/meritum/logger)
+
 Minimal PSR-3 logger that writes newline-delimited JSON to stdout. Designed for containerized environments where structured log output is consumed by a log aggregator (GCP Cloud Logging, AWS CloudWatch, Datadog, etc.).
 
 ## Installation
