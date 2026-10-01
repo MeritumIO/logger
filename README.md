@@ -11,6 +11,7 @@ composer require meritum/logger
 ## Requirements
 
 - PHP 8.4+
+- [`georgeff/kernel`](https://github.com/MikeGeorgeff/kernel) ^2.0
 
 ## Usage
 
@@ -44,41 +45,32 @@ The default minimum level is `debug`, which passes all messages through.
 Add `LoggerModule` to your kernel to register `Psr\Log\LoggerInterface` as a shared service:
 
 ```php
+use Georgeff\Kernel\Kernel;
+use Georgeff\Kernel\Environment\Production;
 use Meritum\Logger\LoggerModule;
+use Psr\Log\LoggerInterface;
 
-$kernel = new Kernel(Environment::Production);
+$kernel = new Kernel(new Production());
 $kernel->addModule(new LoggerModule());
 $kernel->boot();
 
 $logger = $kernel->getContainer()->get(LoggerInterface::class);
 ```
 
-The minimum log level is resolved in this order:
+The minimum log level is read from the `LOG_LEVEL` environment variable, and defaults to `info` in every environment when it isn't set. To get debug output locally, set `LOG_LEVEL=debug`.
 
-1. `LOG_LEVEL` environment variable, if set
-2. `debug` in `Environment::Development`
-3. `info` in all other environments
+`LOG_LEVEL` is read through the kernel's `Env` helper, which converts `true`/`false`/`null` and JSON values to native types. Anything that doesn't come out as a string throws `InvalidArgumentException` at boot. A string that isn't a valid PSR-3 level throws `InvalidArgumentException` when the logger is first resolved.
 
 ### Overriding the binding
 
-If you need a different logger implementation — a file-based logger, a test double, or a third-party PSR-3 library — define `LoggerInterface` in a module registered after `LoggerModule`:
+If you need a different logger implementation — a file-based logger, a test double, or a third-party PSR-3 library — replace the binding with `override()`. Overrides are applied after every module has registered, so it works from the bootstrap or any module, regardless of order. Calling `define(LoggerInterface::class, ...)` instead throws a `DefinitionException`, since `LoggerModule` already defines it:
 
 ```php
 use Psr\Log\LoggerInterface;
-use Psr\Container\ContainerInterface;
 
 $kernel->addModule(new LoggerModule());
-$kernel->addModule(new class implements ModuleInterface {
-    public function register(KernelInterface $kernel): void
-    {
-        $kernel->define(LoggerInterface::class, function (ContainerInterface $c): LoggerInterface {
-            return new MyCustomLogger();
-        })->share();
-    }
-});
+$kernel->override(LoggerInterface::class, fn() => new MyCustomLogger())->share();
 ```
-
-The last definition wins, so `LoggerModule` does not need to be removed.
 
 ## Log output
 

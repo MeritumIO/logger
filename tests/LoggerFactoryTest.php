@@ -2,6 +2,7 @@
 
 namespace Meritum\Logger\Test;
 
+use Georgeff\Kernel\Config\ConfigInterface;
 use Meritum\Logger\Logger;
 use Meritum\Logger\LoggerFactory;
 use PHPUnit\Framework\TestCase;
@@ -10,22 +11,38 @@ use Psr\Log\LoggerInterface;
 
 final class LoggerFactoryTest extends TestCase
 {
+    /**
+     * @param array<string, mixed> $config
+     */
     private function makeContainer(array $config): ContainerInterface
     {
-        return new class($config) implements ContainerInterface {
+        $config = new class($config) implements ConfigInterface {
+            /**
+             * @param array<string, mixed> $config
+             */
             public function __construct(private readonly array $config) {}
+
+            public function all(): array { return $this->config; }
+            public function isEmpty(): bool { return [] === $this->config; }
+            public function has(string $name): bool { return array_key_exists($name, $this->config); }
+            public function get(string $name, mixed $default = null): mixed { return $this->has($name) ? $this->config[$name] : $default; }
+            public function branch(string $name): ConfigInterface { throw new \RuntimeException('not implemented'); }
+        };
+
+        return new class($config) implements ContainerInterface {
+            public function __construct(private readonly ConfigInterface $config) {}
 
             public function get(string $id): mixed
             {
                 return match ($id) {
-                    'kernel.config' => $this->config,
-                    default         => throw new \RuntimeException("Service not found: {$id}"),
+                    ConfigInterface::class => $this->config,
+                    default                => throw new \RuntimeException("Service not found: {$id}"),
                 };
             }
 
             public function has(string $id): bool
             {
-                return $id === 'kernel.config';
+                return $id === ConfigInterface::class;
             }
         };
     }
