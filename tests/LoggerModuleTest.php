@@ -2,156 +2,125 @@
 
 namespace Meritum\Logger\Test;
 
-use Georgeff\Kernel\DI\DefinitionInterface;
-use Georgeff\Kernel\Environment;
-use Georgeff\Kernel\KernelInterface;
-use Meritum\Logger\LoggerFactory;
+use Georgeff\Kernel\Config\ConfigInterface;
+use Georgeff\Kernel\Contract\EnvironmentInterface;
+use Georgeff\Kernel\Environment\Development;
+use Georgeff\Kernel\Environment\Local;
+use Georgeff\Kernel\Environment\Production;
+use Georgeff\Kernel\Environment\Staging;
+use Georgeff\Kernel\Environment\Testing;
+use Georgeff\Kernel\Kernel;
+use Meritum\Logger\Logger;
 use Meritum\Logger\LoggerModule;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 final class LoggerModuleTest extends TestCase
 {
-    private function makeKernel(string &$registeredId = '', ?callable &$registeredFactory = null): KernelInterface
+    protected function setUp(): void
     {
-        return new class($registeredId, $registeredFactory) implements KernelInterface {
-            public function __construct(
-                private string &$registeredId,
-                private mixed &$registeredFactory,
-            ) {}
-
-            public function define(string $id, callable $factory): DefinitionInterface
-            {
-                $this->registeredId      = $id;
-                $this->registeredFactory = $factory;
-
-                return new class implements DefinitionInterface {
-                    public static function for(string $id, callable $factory): static { return new static(); }
-                    public function share(): static { return $this; }
-                    public function alias(string $alias): static { return $this; }
-                    public function tag(string $tag): static { return $this; }
-                    public function getId(): string { return ''; }
-                    public function getFactory(): callable { return fn() => null; }
-                    public function isShared(): bool { return false; }
-                    public function getAliases(): array { return []; }
-                    public function getTags(): array { return []; }
-                };
-            }
-
-            public function boot(): void {}
-            public function shutdown(): void {}
-            public function isBooting(): bool { return false; }
-            public function isBooted(): bool { return false; }
-            public function isShutdown(): bool { return false; }
-            public function getEnvironment(): string { return ''; }
-            public function isDebug(): bool { return false; }
-            public function onBooting(callable $callback): static { return $this; }
-            public function onBooted(callable $callback): static { return $this; }
-            public function onShutdown(callable $callback): static { return $this; }
-            public function afterShutdown(callable $callback): static { return $this; }
-            public function addDefinition(string $id, callable $factory, bool $shared = false, array $aliases = [], array $tags = []): static { return $this; }
-            public function tag(string $id, array $tags): static { return $this; }
-            public function decorate(string $id, callable $decorator): static { return $this; }
-            public function addModule(\Georgeff\Kernel\Module\ModuleInterface $module): static { return $this; }
-            public function addRepository(\Georgeff\Kernel\Module\ModuleRepositoryInterface $repository): static { return $this; }
-            public function getContainer(): \Psr\Container\ContainerInterface { throw new \RuntimeException('not implemented'); }
-            public function getStartTime(): float { return 0.0; }
-        };
+        putenv('LOG_LEVEL');
     }
 
-    public function test_register_defines_logger_interface(): void
+    protected function tearDown(): void
     {
-        $registeredId = '';
-        $module       = new LoggerModule();
-        $kernel       = $this->makeKernel($registeredId);
-
-        $module->register($kernel);
-
-        $this->assertSame(LoggerInterface::class, $registeredId);
+        putenv('LOG_LEVEL');
     }
 
-    public function test_register_uses_logger_factory(): void
+    private function bootKernel(): Kernel
     {
-        $registeredFactory = null;
-        $module            = new LoggerModule();
-        $kernel            = $this->makeKernel(registeredFactory: $registeredFactory);
+        $kernel = new Kernel(new Testing());
+        $kernel->addModule(new LoggerModule());
+        $kernel->boot();
 
-        $module->register($kernel);
-
-        $this->assertInstanceOf(LoggerFactory::class, $registeredFactory);
+        return $kernel;
     }
 
-    public function test_config_returns_log_level_key(): void
+    public function test_registers_logger_interface(): void
     {
-        $module = new LoggerModule();
-        $config = $module->config(Environment::Production);
+        $logger = $this->bootKernel()->getContainer()->get(LoggerInterface::class);
 
-        $this->assertArrayHasKey('logger.log_level', $config);
+        $this->assertInstanceOf(Logger::class, $logger);
     }
 
-    public function test_config_uses_log_level_env_var_when_set(): void
+    public function test_logger_is_shared(): void
+    {
+        $container = $this->bootKernel()->getContainer();
+
+        $this->assertSame($container->get(LoggerInterface::class), $container->get(LoggerInterface::class));
+    }
+
+    public function test_log_level_is_exposed_through_kernel_config(): void
     {
         putenv('LOG_LEVEL=warning');
 
-        try {
-            $module = new LoggerModule();
-            $config = $module->config(Environment::Production);
-            $this->assertSame('warning', $config['logger.log_level']);
-        } finally {
-            putenv('LOG_LEVEL');
-        }
+        $config = $this->bootKernel()->getContainer()->get(ConfigInterface::class);
+
+        $this->assertSame('warning', $config->get('logger.log_level'));
     }
 
-    public function test_config_defaults_to_debug_in_development(): void
+    /**
+     * @return array<string, array{EnvironmentInterface}>
+     */
+    public static function environments(): array
     {
-        putenv('LOG_LEVEL');
-
-        $module = new LoggerModule();
-        $config = $module->config(Environment::Development);
-
-        $this->assertSame('debug', $config['logger.log_level']);
+        return [
+            'local'       => [new Local()],
+            'development' => [new Development()],
+            'staging'     => [new Staging()],
+            'testing'     => [new Testing()],
+            'production'  => [new Production()],
+        ];
     }
 
-    public function test_config_defaults_to_info_in_production(): void
+    #[DataProvider('environments')]
+    public function test_config_defaults_to_info_in_every_environment(EnvironmentInterface $env): void
     {
-        putenv('LOG_LEVEL');
-
-        $module = new LoggerModule();
-        $config = $module->config(Environment::Production);
+        $config = (new LoggerModule())->config($env);
 
         $this->assertSame('info', $config['logger.log_level']);
     }
 
-    public function test_config_defaults_to_info_in_staging(): void
-    {
-        putenv('LOG_LEVEL');
-
-        $module = new LoggerModule();
-        $config = $module->config(Environment::Staging);
-
-        $this->assertSame('info', $config['logger.log_level']);
-    }
-
-    public function test_config_defaults_to_info_in_testing(): void
-    {
-        putenv('LOG_LEVEL');
-
-        $module = new LoggerModule();
-        $config = $module->config(Environment::Testing);
-
-        $this->assertSame('info', $config['logger.log_level']);
-    }
-
-    public function test_env_var_takes_precedence_over_environment_in_development(): void
+    #[DataProvider('environments')]
+    public function test_config_uses_log_level_env_var_when_set(EnvironmentInterface $env): void
     {
         putenv('LOG_LEVEL=error');
 
-        try {
-            $module = new LoggerModule();
-            $config = $module->config(Environment::Development);
-            $this->assertSame('error', $config['logger.log_level']);
-        } finally {
-            putenv('LOG_LEVEL');
-        }
+        $config = (new LoggerModule())->config($env);
+
+        $this->assertSame('error', $config['logger.log_level']);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function nonStringLogLevels(): array
+    {
+        return [
+            'bool'  => ['true', 'bool'],
+            'null'  => ['null', 'null'],
+            'array' => ['["debug"]', 'array'],
+        ];
+    }
+
+    #[DataProvider('nonStringLogLevels')]
+    public function test_config_throws_when_log_level_is_not_a_string(string $value, string $type): void
+    {
+        putenv("LOG_LEVEL={$value}");
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("The LOG_LEVEL environment variable must be a string, {$type} given");
+
+        (new LoggerModule())->config(new Production());
+    }
+
+    public function test_non_string_log_level_fails_boot(): void
+    {
+        putenv('LOG_LEVEL=true');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->bootKernel();
     }
 }

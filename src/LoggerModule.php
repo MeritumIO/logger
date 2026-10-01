@@ -3,9 +3,10 @@
 namespace Meritum\Logger;
 
 use Psr\Log\LoggerInterface;
-use Georgeff\Kernel\Environment;
+use Georgeff\Kernel\Support\Env;
 use Georgeff\Kernel\KernelInterface;
-use Georgeff\Kernel\Module\ConfigurableModuleInterface;
+use Georgeff\Kernel\Contract\EnvironmentInterface;
+use Georgeff\Kernel\Contract\ConfigurableModuleInterface;
 
 final class LoggerModule implements ConfigurableModuleInterface
 {
@@ -14,21 +15,19 @@ final class LoggerModule implements ConfigurableModuleInterface
         $kernel->define(LoggerInterface::class, new LoggerFactory())->share();
     }
 
-    public function config(Environment $env): array
+    public function config(EnvironmentInterface $env): array
     {
-        return [
-            'logger.log_level' => $this->getLogLevel($env),
-        ];
-    }
+        $level = Env::get('LOG_LEVEL', 'info');
 
-    private function getLogLevel(Environment $env): string
-    {
-        $level = getenv('LOG_LEVEL');
-
-        if (false !== $level) {
-            return $level;
+        if (! is_string($level)) {
+            throw new \InvalidArgumentException(sprintf(
+                'The LOG_LEVEL environment variable must be a string, %s given',
+                get_debug_type($level)
+            ));
         }
 
-        return $env === Environment::Development ? 'debug' : 'info';
+        return [
+            'logger.log_level' => $level,
+        ];
     }
 }
