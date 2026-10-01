@@ -14,49 +14,19 @@ final class LoggerModuleTest extends TestCase
 {
     private function makeKernel(string &$registeredId = '', ?callable &$registeredFactory = null): KernelInterface
     {
-        return new class($registeredId, $registeredFactory) implements KernelInterface {
-            public function __construct(
-                private string &$registeredId,
-                private mixed &$registeredFactory,
-            ) {}
+        $definition = $this->createStub(DefinitionInterface::class);
+        $definition->method('share')->willReturn($definition);
 
-            public function define(string $id, callable $factory): DefinitionInterface
-            {
-                $this->registeredId      = $id;
-                $this->registeredFactory = $factory;
+        $kernel = $this->createStub(KernelInterface::class);
+        $kernel->method('define')
+            ->willReturnCallback(function (string $id, callable $factory) use (&$registeredId, &$registeredFactory, $definition): DefinitionInterface {
+                $registeredId      = $id;
+                $registeredFactory = $factory;
 
-                return new class implements DefinitionInterface {
-                    public static function for(string $id, callable $factory): static { return new static(); }
-                    public function share(): static { return $this; }
-                    public function alias(string $alias): static { return $this; }
-                    public function tag(string $tag): static { return $this; }
-                    public function getId(): string { return ''; }
-                    public function getFactory(): callable { return fn() => null; }
-                    public function isShared(): bool { return false; }
-                    public function getAliases(): array { return []; }
-                    public function getTags(): array { return []; }
-                };
-            }
+                return $definition;
+            });
 
-            public function boot(): void {}
-            public function shutdown(): void {}
-            public function isBooting(): bool { return false; }
-            public function isBooted(): bool { return false; }
-            public function isShutdown(): bool { return false; }
-            public function getEnvironment(): string { return ''; }
-            public function isDebug(): bool { return false; }
-            public function onBooting(callable $callback): static { return $this; }
-            public function onBooted(callable $callback): static { return $this; }
-            public function onShutdown(callable $callback): static { return $this; }
-            public function afterShutdown(callable $callback): static { return $this; }
-            public function addDefinition(string $id, callable $factory, bool $shared = false, array $aliases = [], array $tags = []): static { return $this; }
-            public function tag(string $id, array $tags): static { return $this; }
-            public function decorate(string $id, callable $decorator): static { return $this; }
-            public function addModule(\Georgeff\Kernel\Module\ModuleInterface $module): static { return $this; }
-            public function addRepository(\Georgeff\Kernel\Module\ModuleRepositoryInterface $repository): static { return $this; }
-            public function getContainer(): \Psr\Container\ContainerInterface { throw new \RuntimeException('not implemented'); }
-            public function getStartTime(): float { return 0.0; }
-        };
+        return $kernel;
     }
 
     public function test_register_defines_logger_interface(): void
